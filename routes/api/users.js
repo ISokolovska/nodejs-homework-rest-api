@@ -27,6 +27,7 @@ router.post("/signup", async (req, res, next) => {
     token: user.token,
     subscription: user.subscription,
     avatarURL: user.avatarURL,
+    verificationToken: user.verificationToken,
   });
 });
 
@@ -89,5 +90,34 @@ router.patch(
     });
   }
 );
+
+router.get("/verify/:verificationToken", async (req, res, next) => {
+  const { verificationToken } = req.params;
+  console.log("verificationToken", verificationToken);
+  const user = await functions.verifyUser(verificationToken);
+  if (!user) {
+    return res.status(404).json({
+      message: "User not found",
+    });
+  }
+  return res.status(200).json({
+    message: "Verification successful",
+  });
+});
+
+router.post("/verify", async (req, res, next) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({
+      message: "missing required field email",
+    });
+  }
+  const user = await functions.resendVerifyUser(email);
+  if (user.message) {
+    return res.status(user.status).json({
+      message: user.message,
+    });
+  }
+});
 
 module.exports = router;

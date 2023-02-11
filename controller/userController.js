@@ -2,25 +2,32 @@ const gravatar = require("gravatar");
 const User = require("../models/user.model");
 const { hashPassword, comparePassword } = require("../utils/hash.util");
 const { jwtSign } = require("../utils/jwt.util");
+const { v4: uuidv4 } = require("uuid");
+const { sendVerifyEmail } = require("../utils/verify.util");
 
 const signUp = async ({ email, password }) => {
   const user = await User.findOne({ email: email });
   if (user) {
     return null;
   }
+  const secureUrl = gravatar.url(email, { s: "100", r: "x", d: "retro" }, true);
+  const verificationToken = uuidv4();
+
   const newUser = await User.create({
     email,
     password: hashPassword(password),
+    avatarURL: secureUrl,
+    verificationToken,
   });
-  const secureUrl = gravatar.url(email, { s: "100", r: "x", d: "retro" }, true);
+
   const updatedUser = await User.findOneAndUpdate(
     { _id: newUser._id },
     {
       token: jwtSign({ _id: newUser._id }),
-      avatarURL: secureUrl,
     },
     { new: true }
   );
+  sendVerifyEmail(verificationToken, email);
   return updatedUser;
 };
 
@@ -44,8 +51,6 @@ const logout = async (_id) => {
     },
     { new: true }
   );
-  console.log("🚀 ~ file: userController.js:47 ~ logout ~ user", user);
-
   return user;
 };
 
@@ -67,10 +72,43 @@ const updateAvatar = async (_id, avatarURL) => {
   return user;
 };
 
+const verifyUser = async (verificationToken) => {
+  const user = await User.findOne({ verificationToken });
+  console.log("user by token", user);
+  if (!user) {
+    return null;
+  }
+  const verifyUser = await User.findOneAndUpdate(
+    { _id: user._id },
+    { verificationToken: null, verify: true },
+    { new: true }
+  );
+  return verifyUser;
+};
+
+const resendVerifyUser = async (email) => {
+  const user = await User.findOne({ email });
+  if (!user) {
+    return {
+      status: 400,
+      message: "User not found",
+    };
+  }
+  if (user.verify) {
+    return {
+      status: 400,
+      message: "Verification has already been passed",
+    };
+  }
+  sendVerifyEmail(user.verificationToken, email);
+};
+
 module.exports = {
   signUp,
   signIn,
   logout,
   updateSubscription,
   updateAvatar,
+  verifyUser,
+  resendVerifyUser,
 };
