@@ -118,14 +118,6 @@ router.post("/verify", async (req, res, next) => {
       message: user.message,
     });
   }
-  // if (!user) {
-  //   return res.status(400).json({
-  //     message: "Verification has already been passed",
-  //   });
-  // }
-  // return res.status(200).json({
-  //   message: "Verification successful",
-  // });
 });
 
 module.exports = router;
